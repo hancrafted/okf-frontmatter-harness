@@ -1,6 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["src/**/*.ts", "*.ts", ".archgate/**/*.ts"],
-  "ignoreDependencies": ["archgate"],
   "ignoreExportsUsedInFile": true
 }
