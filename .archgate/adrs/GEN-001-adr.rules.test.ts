@@ -23,13 +23,19 @@ function globToRegExp(pattern: string): RegExp {
   return new RegExp(`^${escaped}$`);
 }
 
-// `symlinks` model archgate's behavior: ctx.glob lists them but ctx.readFile
-// throws (archgate does not follow symlinks). Regular entries live in `files`.
-function makeCtx(files: Record<string, string>, opts?: { config?: unknown; symlinks?: string[] }) {
+// `symlinks` maps a link path to its target and models archgate 0.55: ctx.glob
+// lists the link AND ctx.readFile resolves it, returning the target's bytes.
+// `brokenLinks` are listed by glob but unreadable (dangling, or escaping the
+// project root). Regular entries live in `files`.
+function makeCtx(
+  files: Record<string, string>,
+  opts?: { config?: unknown; symlinks?: Record<string, string>; brokenLinks?: string[] },
+) {
   const violations: Reported[] = [];
   const warnings: Reported[] = [];
-  const symlinks = opts?.symlinks ?? [];
-  const allPaths = [...Object.keys(files), ...symlinks];
+  const symlinks = opts?.symlinks ?? {};
+  const brokenLinks = opts?.brokenLinks ?? [];
+  const allPaths = [...Object.keys(files), ...Object.keys(symlinks), ...brokenLinks];
   const ctx = {
     projectRoot: '/repo',
     scopedFiles: allPaths,
@@ -40,7 +46,12 @@ function makeCtx(files: Record<string, string>, opts?: { config?: unknown; symli
     },
     async readFile(path: string) {
       if (path in files) return files[path];
-      if (symlinks.includes(path)) throw new Error(`ELOOP: not followed: ${path}`);
+      if (path in symlinks) {
+        const target = symlinks[path];
+        if (target in files) return files[target];
+        throw new Error(`ENOENT: dangling symlink ${path} -> ${target}`);
+      }
+      if (brokenLinks.includes(path)) throw new Error(`ENOENT: broken symlink ${path}`);
       throw new Error(`ENOENT: ${path}`);
     },
     async readJSON(path: string) {
@@ -158,7 +169,7 @@ describe('adr-required-sections', () => {
 
 describe('adr-claude-rules-symlink', () => {
   it('passes when a scoped ADR has a runtime symlink', async () => {
-    const { ctx, violations } = makeCtx(passingFiles(), { symlinks: [LINK_PATH] });
+    const { ctx, violations } = makeCtx(passingFiles(), { symlinks: { [LINK_PATH]: ADR_PATH } });
     await rules['adr-claude-rules-symlink'].check(ctx);
     expect(violations).toEqual([]);
   });
@@ -169,23 +180,40 @@ describe('adr-claude-rules-symlink', () => {
     expect(violations.some((v) => /no runtime symlink/.test(v.message))).toBe(true);
   });
 
-  it('fails when the runtime entry is a regular file (a copy), not a symlink', async () => {
+  it('fails when the runtime entry has drifted from the ADR', async () => {
+    const drifted = VALID_ADR.replace('## References', '## Drifted\n\nStale copy.\n\n## References');
+    const { ctx, violations } = makeCtx({ ...passingFiles(), [LINK_PATH]: drifted });
+    await rules['adr-claude-rules-symlink'].check(ctx);
+    expect(violations.some((v) => /does not match the ADR byte-for-byte/.test(v.message))).toBe(true);
+  });
+
+  it('fails when the runtime entry is a broken symlink', async () => {
+    const { ctx, violations } = makeCtx(passingFiles(), { brokenLinks: [LINK_PATH] });
+    await rules['adr-claude-rules-symlink'].check(ctx);
+    expect(violations.some((v) => /cannot be read/.test(v.message))).toBe(true);
+  });
+
+  // Accepted gap under archgate 0.55: readFile() resolves symlinks, so a copy is
+  // indistinguishable from a pointer until it drifts. Documented in GEN-001
+  // Consequences and docs/research/symlink-detection-055.md; asserted here so the
+  // gap is a deliberate, visible choice rather than an untested assumption.
+  it('passes a byte-identical copy — the documented gap under 0.55', async () => {
     const { ctx, violations } = makeCtx({ ...passingFiles(), [LINK_PATH]: VALID_ADR });
     await rules['adr-claude-rules-symlink'].check(ctx);
-    expect(violations.some((v) => /is a regular file/.test(v.message))).toBe(true);
+    expect(violations).toEqual([]);
   });
 
   it('fails when an ADR with empty paths still has a runtime entry', async () => {
     const files = passingFiles();
     files[ADR_PATH] = VALID_ADR.replace('paths: [".archgate/adrs/**/*.md"]', 'paths: []');
-    const { ctx, violations } = makeCtx(files, { symlinks: [LINK_PATH] });
+    const { ctx, violations } = makeCtx(files, { symlinks: { [LINK_PATH]: ADR_PATH } });
     await rules['adr-claude-rules-symlink'].check(ctx);
     expect(violations.some((v) => /a runtime entry exists/.test(v.message))).toBe(true);
   });
 
   it('fails on an orphaned ADR-named runtime symlink', async () => {
     const { ctx, violations } = makeCtx(passingFiles(), {
-      symlinks: [LINK_PATH, '.claude/rules/gen-999-ghost.md'],
+      symlinks: { [LINK_PATH]: ADR_PATH, '.claude/rules/gen-999-ghost.md': ADR_PATH },
     });
     await rules['adr-claude-rules-symlink'].check(ctx);
     expect(violations.some((v) => /has no backing ADR/.test(v.message))).toBe(true);

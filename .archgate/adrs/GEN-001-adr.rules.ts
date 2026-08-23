@@ -316,19 +316,22 @@ export default {
 
     'adr-claude-rules-symlink': {
       description:
-        'Every ADR with a non-empty paths: has a .claude/rules/<basename-lowercased>.md symlink (a pointer, never a copied body) to it; an ADR with empty/absent paths: has none; no orphaned ADR symlink lingers.',
+        'Every ADR with a non-empty paths: has a .claude/rules/<basename-lowercased>.md runtime entry whose bytes match the ADR exactly (a symlink satisfies this; a drifted copy does not); an ADR with empty/absent paths: has none; no orphaned ADR-named entry lingers.',
       severity: 'error',
-      // archgate's file API does not follow symlinks: ctx.glob lists a symlink
-      // but ctx.readFile throws on it. That signature IS the check — a
-      // glob-listed entry that readFile cannot open is a symlink (correct); one
-      // it can open is a regular file, i.e. a forbidden copy.
+      // archgate 0.55 resolves symlinks inside the project root, so readFile()
+      // returns the ADR's bytes through the link. The pre-0.55 signature (glob
+      // lists it, readFile throws) inverted, so this rule asserts *sync* — the
+      // runtime entry matches the ADR byte-for-byte — rather than pointer-ness.
+      // A symlink satisfies that tautologically; a copy that has drifted does
+      // not. Accepted gap: a byte-identical fresh copy is NOT caught. See
+      // docs/research/symlink-detection-055.md and GEN-001 Consequences.
       async check(ctx) {
         const files = adrFiles(await ctx.glob(ADR_MD_GLOB));
         const entries = new Set(await ctx.glob(CLAUDE_RULES_GLOB));
-        const isSymlink = async (path: string): Promise<boolean> => (await tryReadFile(ctx, path)) === null;
         const expected = new Set<string>();
         for (const file of files) {
-          const fm = extractFrontmatter(await ctx.readFile(file)) ?? '';
+          const source = await ctx.readFile(file);
+          const fm = extractFrontmatter(source) ?? '';
           const link = symlinkPathFor(file);
           if (hasNonEmptyPaths(fm)) {
             expected.add(link);
@@ -337,11 +340,19 @@ export default {
                 message: `ADR declares paths: but has no runtime symlink — create '${link}' as a symlink to the ADR (GEN-001 [adr-claude-rules-symlink]).`,
                 file,
               });
-            } else if (!(await isSymlink(link))) {
-              ctx.report.violation({
-                message: `Runtime entry '${link}' is a regular file — it MUST be a symlink to the ADR, never a copied body (GEN-001 [adr-claude-rules-symlink]).`,
-                file,
-              });
+            } else {
+              const linked = await tryReadFile(ctx, link);
+              if (linked === null) {
+                ctx.report.violation({
+                  message: `Runtime entry '${link}' cannot be read — it is a broken symlink, or points outside the project root; recreate it as a symlink to the ADR (GEN-001 [adr-claude-rules-symlink]).`,
+                  file,
+                });
+              } else if (linked !== source) {
+                ctx.report.violation({
+                  message: `Runtime entry '${link}' does not match the ADR byte-for-byte — it is a copied body that has drifted; replace it with a symlink to the ADR (GEN-001 [adr-claude-rules-symlink]).`,
+                  file,
+                });
+              }
             }
           } else if (entries.has(link)) {
             ctx.report.violation({
@@ -353,12 +364,10 @@ export default {
         for (const entry of entries) {
           if (expected.has(entry)) continue;
           if (!CLAUDE_ADR_LINK_RE.test(basename(entry))) continue; // not an ADR-shaped name — leave shared/hand-written rules alone
-          if (await isSymlink(entry)) {
-            ctx.report.violation({
-              message: `Runtime symlink '${entry}' has no backing ADR with a non-empty paths: — remove the orphan (GEN-001 [adr-claude-rules-symlink]).`,
-              file: entry,
-            });
-          }
+          ctx.report.violation({
+            message: `Runtime entry '${entry}' has no backing ADR with a non-empty paths: — remove the orphan (GEN-001 [adr-claude-rules-symlink]).`,
+            file: entry,
+          });
         }
       },
     },
