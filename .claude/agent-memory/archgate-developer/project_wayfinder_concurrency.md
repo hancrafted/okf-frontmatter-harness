@@ -15,5 +15,6 @@ Han runs **multiple wayfinder sessions concurrently** against the map in `okf-fr
 - **Never `cat >` a research deliverable without checking whether it already exists.** I overwrote a concurrent session's synthesis file this way; only its issue comment preserved the content. Prefer checking `ls`/timestamps first, and merge rather than replace.
 - **Expect duplicate Decisions-so-far entries on the map** and dedupe into one merged line.
 - Losing work is recoverable _only_ because wayfinder posts the answer as an issue comment before touching files. That ordering is a safety property — keep it: comment first, then write files.
+- **A session can die mid-ticket having already committed code but never posted the resolution.** On 2026-08-23 ticket #5 was claimed, its code fix committed (`9bafe64`), and then the session terminated — leaving an open, assigned ticket with zero comments and the work invisible on the tracker. **Before starting a claimed-but-unresolved ticket, run `git log` and check the working tree**: half the ticket may already be done, and re-deciding it wastes the session. Conversely, an assignee is not evidence that anything happened.
 
 See [[project-okf-frontmatter-harness]] and [[feedback-design-decisions-need-precedent]].
