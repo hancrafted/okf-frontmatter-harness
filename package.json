@@ -9,8 +9,8 @@
     "test:watch": "vitest watch",
     "knip": "knip",
     "prepare": "husky",
-    "verify": "eslint . && prettier --check . && tsc --noEmit && vitest run && knip && archgate check",
-    "verify:commit": "lint-staged && tsc --noEmit && vitest run && archgate check"
+    "verify": "node scripts/check-archgate-version.mjs && eslint . && prettier --check . && tsc --noEmit && vitest run && knip && archgate check && git diff --exit-code .archgate/rules.d.ts",
+    "verify:commit": "node scripts/check-archgate-version.mjs && lint-staged && tsc --noEmit && vitest run && archgate check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -23,6 +23,7 @@
     "lint-staged": "^17.3.0",
     "prettier": "^3.9.6",
     "prettier-plugin-organize-imports": "^4.3.0",
+    "semver": "^7.8.5",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.67.0",
     "vitest": "^4.1.11"
