@@ -4,7 +4,8 @@
 - [okf-frontmatter-harness project context](project_okf_frontmatter_harness.md) — OKF v0.2 as an interface, npm/ADR-Pack northstar, and why it's out of the first map's scope.
 - [Wayfinder sessions run in parallel](project_wayfinder_concurrency.md) — claims don't lock; re-check ticket state and never overwrite research files blind.
 - [Prefer documented signals over undocumented ones](feedback_prefer_documented_signals.md) — take the weaker documented check; write the gap down and test it.
-- [Verify the mechanism before recommending a policy](feedback_verify_mechanism_before_policy.md) — read the shipped artifact and probe it; Han's challenges have twice overturned an unverified framing.
+- [Verify the mechanism before asserting it](feedback_verify_mechanism_before_policy.md) — probe the artifact, and name the place you actually tested, not the one you extrapolated to.
 - [Name the boundary, do not consolidate](feedback_name_the_boundary.md) — when two systems collide, Han names both sides; always offer that option too.
 - [Plain language and OKF slugs](feedback_plain_language_and_okf_slugs.md) — grill in simple terms; always cite OKF sections with their title, never a bare number.
-- [Grilling Han](feedback_grilling_han.md) — plain language over jargon; a restated answer means the options were wrong-shaped.
+- [Reading Han's grilling answers](feedback_grilling_han.md) — a restated answer means your options were the wrong shape; re-derive and read it back.
+- [Explicit over inherited](feedback_explicit_over_inherited.md) — Han trades duplication for explicitness; explain a merge model in worked examples before he locks it.
