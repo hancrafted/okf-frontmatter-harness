@@ -36,9 +36,31 @@ _Avoid_: summary, digest
 is constrained by having to survive being copied into a foreign repo unchanged.
 _Avoid_: framework, tool, plugin
 
-**OKF**: Google's Open Knowledge Format, v0.2. Treated as an interface the harness
-implements, never as a spec the harness owns.
-_Avoid_: the spec, the standard
+**OKF**: Google's Open Knowledge Format. Treated as an interface the harness
+implements, never as a spec the harness owns. Its version label is **not** a contract
+boundary: OKF changes normative content in place under a fixed label, and publishes no
+tags or releases. So the interface the harness implements is named by the Pinned
+revision, never by the string `0.2`.
+_Avoid_: the spec, the standard, OKF v0.2 (as an identifier)
+
+**Pinned revision**: The exact OKF text the harness's constraints were derived from,
+vendored byte-identical at `docs/okf/SPEC-v0.2.md`. That file _is_ the pin — git
+content-addresses it, so no checksum is recorded anywhere else and nothing verifies it.
+_Avoid_: the spec version, v0.2, the snapshot
+
+**Upstream**: OKF's live `main` branch, which moves without warning and without a version
+bump. Never the thing the harness implements.
+_Avoid_: the latest spec, canonical OKF
+
+**Drift**: Upstream differing from the Pinned revision. A fact, not an error — nobody
+caused it, and nothing in this repo reports it. (Scoped to this pair; unrelated to the
+generic sense used of `rules.d.ts` or duplicated config.)
+_Avoid_: staleness, violation, non-conformance
+
+**Reconciliation**: The deliberate act of moving the pin — replacing the Pinned revision,
+reading the diff, and adjusting the ADRs and rules it touches. Always manual, always a
+reviewable change.
+_Avoid_: upgrading, bumping, syncing
 
 **Domain**: An archgate grouping that scopes an ADR to a set of paths. Must be a built-in
 domain or one registered in `.archgate/config.json`.

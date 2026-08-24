@@ -3,3 +3,7 @@ coverage
 dist
 .archgate/rules.d.ts
 .worktrees
+
+# Vendored third-party text: this file IS the pin the harness implements, so it
+# must stay byte-identical to upstream. Formatting it would silently move the pin.
+docs/okf/SPEC-v0.2.md
