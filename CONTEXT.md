@@ -50,10 +50,19 @@ _Avoid_: area, category, scope
 invisible to the harness — it never reports on them. Governance is opt-in by path.
 _Avoid_: tracked file, included file, covered file
 
-**Floor**: The OKF requirements the harness enforces on every Governed file without
-exception. Not configurable, not relaxable, not narrowable. A repo that switches a Floor
-check off is no longer implementing OKF.
+**Floor**: The OKF requirements the harness enforces on every Governed file. Not
+configurable, not relaxable, not narrowable. A repo that switches a Floor check off is no
+longer implementing OKF. It admits exactly one exception, and that exception is forced
+rather than chosen: a rule declaring a path frontmatter-free displaces the Floor, because a
+file cannot both carry no frontmatter and carry a required field.
 _Avoid_: baseline, defaults, required checks, core rules
+
+**Reserved filename**: OKF's term for `index.md` and `log.md`, which §3.1 (Reserved
+filenames) excludes from being concept documents. **The harness has no such concept.** They
+are ordinary markdown — a Governed file when a path rule matches one, invisible when none
+does. What keeps the harness OKF-conformant is the default ruleset it ships, not a name list
+inside it.
+_Avoid_: special file, exempt file, non-concept file
 
 **Configurable check**: A check a repo turns on, off, or narrows through path rules. It
 carries the harness's taste, not OKF's requirements. Everything outside the Floor is one.
