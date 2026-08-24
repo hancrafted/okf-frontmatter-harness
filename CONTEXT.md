@@ -43,3 +43,24 @@ _Avoid_: the spec, the standard
 **Domain**: An archgate grouping that scopes an ADR to a set of paths. Must be a built-in
 domain or one registered in `.archgate/config.json`.
 _Avoid_: area, category, scope
+
+### What the harness checks
+
+**Governed file**: A file matched by at least one path rule. Files nothing matches are
+invisible to the harness — it never reports on them. Governance is opt-in by path.
+_Avoid_: tracked file, included file, covered file
+
+**Floor**: The OKF requirements the harness enforces on every Governed file without
+exception. Not configurable, not relaxable, not narrowable. A repo that switches a Floor
+check off is no longer implementing OKF.
+_Avoid_: baseline, defaults, required checks, core rules
+
+**Configurable check**: A check a repo turns on, off, or narrows through path rules. It
+carries the harness's taste, not OKF's requirements. Everything outside the Floor is one.
+_Avoid_: optional rule, soft rule, warning
+
+**Actor**: An identity recorded in frontmatter, written `<producer>/<version>`,
+`human:<id>`, or `process:<id>`. Consumers derive trust from the `human:` prefix, so the
+form is load-bearing rather than cosmetic. The harness checks an Actor's form, never
+whether the identity it names is the true author.
+_Avoid_: author, owner, signer
