@@ -5,6 +5,7 @@ title: 'ADR Contract'
 domain: general
 rules: true
 paths: ['.archgate/adrs/**/*.{md,ts}']
+files: ['.archgate/adrs/**/*.{md,ts}']
 description: 'The shape and runtime-loading contract every ADR under .archgate/adrs/ obeys: frontmatter bundle and order, six canonical sections, and a .claude/rules symlink that loads the ADR into agent context on Read.'
 ---
 
@@ -29,7 +30,7 @@ Rejected alternative: a generator that copies each ADR body into `.claude/rules/
 
 ### 2. Frontmatter contract (📜 Rule: `adr-frontmatter`)
 
-1. Keys `type`, `id`, `title`, `domain`, `rules` MUST be present and non-empty; `paths` is optional.
+1. Keys `type`, `id`, `title`, `domain`, `rules` MUST be present and non-empty; `paths` and `files` are optional.
 2. Field order MUST be exactly `type → id → title → domain → rules → paths`; `type` leads because it is the universal field `GEN-003` owns. Additional keys (e.g. `description`) MAY follow `paths`.
 3. `type` MUST be `adr`.
 4. `id` MUST match the filename prefix — `GEN-001-adr.md` carries `id: GEN-001`.
@@ -47,7 +48,7 @@ Every ADR MUST carry all six canonical H2 headings — exact text, presence-only
 2. The runtime entry MUST be a symlink (a pointer), never a copied body that would silently go stale. The check asserts this as **byte-for-byte sync** with the ADR: a symlink satisfies it inherently, a drifted copy fails, and a fresh identical copy is an accepted gap (Consequences).
 3. An ADR with empty or absent `paths:` MUST NOT have such a symlink — it governs nothing at runtime.
 4. Every ADR-named entry under `.claude/rules/` (basename `<prefix>-<nnn>-<slug>.md`) MUST have a backing ADR with a non-empty `paths:`; orphans are a violation. Hand-written, non-ADR-named rule files are left untouched.
-5. `paths:` is the single source of scope — it documents the ADR's governance surface and triggers Claude Code loading. Always-on scope is `paths: ["**/*"]` (a glob matching every Read); the no-`paths` launch-load mode is deliberately unused, so every symlinked ADR declares its scope.
+5. Two keys, two consumers: `files:` is archgate's scope — it sets `ctx.scopedFiles` and gates whether these rules run at all, silently defaulting to the whole project when absent. `paths:` is Claude Code's read-trigger, publishing the ADR through the §4.1 symlink. Declare both, at the same glob. Always-on scope is `["**/*"]` (a glob matching every Read); the no-`paths` launch-load mode is deliberately unused, so every symlinked ADR declares its scope.
 6. The channel is soft: a missing symlink degrades runtime hinting but does not gate the build beyond this rule — archgate at commit and push stays authoritative.
 
 ### 5. Authoring discipline
@@ -113,7 +114,7 @@ An ADR loads into agent context as a `.claude/rules` runtime rule (§4), so ever
 
 1. **Fork-proof shape:** the six-section, ordered-frontmatter form is machine-held, not convention-held.
 2. **Just-in-time governance:** the governing ADR loads into agent context the moment a governed file is opened, so compliance happens before the archgate backstop rejects at push.
-3. **Scope self-documents:** `paths:` is both the runtime load trigger and the documented governance surface; the contract's own lint scope is a separate fixed glob set in `GEN-001-adr.rules.ts`, so keeping the two aligned is a manual review duty.
+3. **Scope is three globs, not one:** `files:` scopes archgate, `paths:` triggers Claude Code loading, and each rule in `GEN-001-adr.rules.ts` globs explicitly rather than trusting `ctx.scopedFiles`; keeping the three aligned is a manual review duty. Because `files:` also gates execution, a change touching only `.claude/rules/` skips this ADR entirely — a deleted symlink or an orphaned entry is reported at the next ADR edit, not at the commit that broke it. Accepted: §4.6 makes the runtime channel soft.
 4. **Dogfooded:** GEN-001's own rules validate its file and symlink on every `archgate check`.
 5. **Rule ↔ prose traceability:** every rule is marked on both the Decision and Do's/Don'ts sides, and every marker must name a declared rule — checked in both directions, so no rule is unstated and no statement unenforced.
 
