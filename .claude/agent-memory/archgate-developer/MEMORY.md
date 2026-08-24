@@ -2,6 +2,7 @@
 
 - [Design decisions need researched precedent](feedback_design_decisions_need_precedent.md) — back recommendations with real-world evidence; Han will ask for it otherwise.
 - [okf-frontmatter-harness project context](project_okf_frontmatter_harness.md) — OKF v0.2 as an interface, npm/ADR-Pack northstar, and why it's out of the first map's scope.
+- [GEN-001 is upstream-owned](project_gen001_upstream.md) — it came from another repo; keep edits portable and say which are local convention.
 - [Wayfinder sessions run in parallel](project_wayfinder_concurrency.md) — claims don't lock; re-check ticket state and never overwrite research files blind.
 - [Prefer documented signals over undocumented ones](feedback_prefer_documented_signals.md) — take the weaker documented check; write the gap down and test it.
 - [Verify the mechanism before asserting it](feedback_verify_mechanism_before_policy.md) — probe the artifact, and name the place you actually tested, not the one you extrapolated to.
