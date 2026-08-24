@@ -20,10 +20,21 @@ the path-gating that turned out to be the sentence reconciling OKF §11 with opt
 the single most load-bearing line in the resolution. Had I filed either as "he picked A", the
 decision recorded would have been materially wrong.
 
+**The readback cuts both ways: it also catches when his improvement does not survive the
+mechanism.** On #8 he answered a question about permitting one frontmatter key with _"we can just
+add one more rule above the index rule because it would match first"_ — ordering rather than
+exception grammar, and the right instinct. But any rule placed above is still a _governing_ rule, so
+it re-arms the unrelaxable floor and drags in a `type` requirement the file must not have. Reading it
+back as a two-row table — what his rule actually yields versus what the other payload yields —
+surfaced that half his fix needed to be an exclusion instead, and produced the sharpest line in the
+resolution ("governed but type-free is inexpressible"). Do not just capture his restatement; run it
+against the mechanism first.
+
 **How to apply:** when the reply is prose rather than a selection, stop and ask what his sentence
 implies that the options did not offer, then reflect it back explicitly as "my reading of your
 answer, stated so you can correct it". He corrects that readback when it is off, which is how the
 path-gating detail got pinned down. Related: he engages hard with a flagged contradiction — when
 his answer conflicted with a standing preference already recorded on the map, surfacing the
 conflict outright (rather than silently absorbing it) produced a clean ruling and a rewritten
-preference. See [[feedback-name-the-boundary]] and [[feedback-design-decisions-need-precedent]].
+preference. See [[feedback-name-the-boundary]], [[feedback-challenge-the-interface]] and
+[[feedback-design-decisions-need-precedent]].

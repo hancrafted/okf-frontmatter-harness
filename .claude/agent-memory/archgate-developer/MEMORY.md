@@ -8,4 +8,5 @@
 - [Name the boundary, do not consolidate](feedback_name_the_boundary.md) — when two systems collide, Han names both sides; always offer that option too.
 - [Plain language and OKF slugs](feedback_plain_language_and_okf_slugs.md) — grill in simple terms; always cite OKF sections with their title, never a bare number.
 - [Reading Han's grilling answers](feedback_grilling_han.md) — a restated answer means your options were the wrong shape; re-derive and read it back.
+- [Challenge the interface, then name the divergence](feedback_challenge_the_interface.md) — Han overrules a spec that blocks a real need; offer divergence and file it upstream.
 - [Explicit over inherited](feedback_explicit_over_inherited.md) — Han trades duplication for explicitness; explain a merge model in worked examples before he locks it.
