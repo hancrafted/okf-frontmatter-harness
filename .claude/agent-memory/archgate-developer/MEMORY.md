@@ -7,3 +7,4 @@
 - [Verify the mechanism before recommending a policy](feedback_verify_mechanism_before_policy.md) — read the shipped artifact and probe it; Han's challenges have twice overturned an unverified framing.
 - [Name the boundary, do not consolidate](feedback_name_the_boundary.md) — when two systems collide, Han names both sides; always offer that option too.
 - [Plain language and OKF slugs](feedback_plain_language_and_okf_slugs.md) — grill in simple terms; always cite OKF sections with their title, never a bare number.
+- [Grilling Han](feedback_grilling_han.md) — plain language over jargon; a restated answer means the options were wrong-shaped.
