@@ -63,6 +63,24 @@ function hasNonEmptyPaths(fm: string): boolean {
   return val !== null && val !== '' && !/^\[\s*\]$/.test(val);
 }
 
+// How archgate will read an ADR's `files:` key. Read through ctx.readYAML() so
+// flow and block form classify alike — archgate honours both (unlike `paths:`,
+// §2.7, whose non-empty test above is deliberately line-based). The three bad
+// states fail differently: `empty` and `absent` widen scope to the whole
+// project, while `malformed` (a valueless or non-list value) fails archgate's
+// own frontmatter schema and drops the ADR from the run entirely — reported
+// only as an advisory that bare `archgate check` does not fail on.
+type FilesState = 'absent' | 'empty' | 'malformed' | 'ok';
+
+function classifyFiles(frontmatter: Record<string, YamlValue> | null): FilesState {
+  if (frontmatter === null || !('files' in frontmatter)) return 'absent';
+  const value = frontmatter.files;
+  if (!Array.isArray(value)) return 'malformed';
+  if (value.length === 0) return 'empty';
+  if (value.some((glob) => typeof glob !== 'string' || glob.trim() === '')) return 'malformed';
+  return 'ok';
+}
+
 // Expected runtime symlink path for an ADR file: the basename, lowercased.
 function symlinkPathFor(file: string): string {
   return `.claude/rules/${basename(file).toLowerCase()}`;
@@ -637,6 +655,49 @@ export default {
               message: `ADR 'paths:' must be an inline flow list like paths: ["glob"] — a bare, block-style, or null value parses as empty and silently drops the runtime scope (GEN-001 [adr-paths-inline]).`,
               file,
             });
+          }
+        }
+      },
+    },
+
+    'adr-files-scope': {
+      description:
+        "files: is archgate's scope key: required alongside paths:, and a non-empty glob list wherever present. Absent or [] widens scope to the whole project silently; a bare or non-list value makes archgate refuse the whole ADR while `archgate check` still passes.",
+      severity: 'error',
+      async check(ctx) {
+        const files = adrFiles(await ctx.glob(ADR_MD_GLOB));
+        for (const file of files) {
+          const fm = extractFrontmatter(await ctx.readFile(file));
+          if (fm === null) continue; // adr-frontmatter owns the missing-frontmatter finding
+          let frontmatter: Record<string, YamlValue> | null;
+          try {
+            frontmatter = (await ctx.readYAML(file)).frontmatter;
+          } catch {
+            continue; // unparseable YAML — adr-frontmatter owns the shape finding
+          }
+          switch (classifyFiles(frontmatter)) {
+            case 'malformed':
+              ctx.report.violation({
+                message: `ADR 'files:' must be a list of non-empty glob strings — a bare or non-list value makes archgate refuse the whole ADR, dropping every rule it carries while 'archgate check' still reports a pass (GEN-001 [adr-files-scope]).`,
+                file,
+              });
+              break;
+            case 'empty':
+              ctx.report.violation({
+                message: `ADR declares an empty 'files: []', which archgate reads as no scope at all and silently widens to every file in the project — list the globs these rules govern, or ["**/*"] to mean all of them (GEN-001 [adr-files-scope]).`,
+                file,
+              });
+              break;
+            case 'absent':
+              if (/^paths[ \t]*:/m.test(fm)) {
+                ctx.report.violation({
+                  message: `ADR declares 'paths:' but no 'files:', so archgate silently scopes it to every file in the project instead of the ones it governs — declare 'files:' alongside 'paths:' (GEN-001 [adr-files-scope]).`,
+                  file,
+                });
+              }
+              break;
+            case 'ok':
+              break;
           }
         }
       },

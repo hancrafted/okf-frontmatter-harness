@@ -27,6 +27,46 @@ function globToRegExp(pattern: string): RegExp {
 // lists the link AND ctx.readFile resolves it, returning the target's bytes.
 // `brokenLinks` are listed by glob but unreadable (dangling, or escaping the
 // project root). Regular entries live in `files`.
+function unquote(s: string): string {
+  return s.replace(/^["']|["']$/g, '');
+}
+
+// A deliberately narrow frontmatter parser: exactly the YAML forms these rules
+// must tell apart — flow sequence, block sequence, scalar, and a valueless key
+// (which archgate reads as null and rejects) — and nothing more. Fidelity to
+// archgate 0.55's own parser is corroborated by the integration probe recorded
+// on issue #14, not by this mock.
+function parseFrontmatter(block: string): Record<string, YamlValue> {
+  const out: Record<string, YamlValue> = {};
+  const lines = block.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^([A-Za-z_][\w-]*)[ \t]*:[ \t]*(.*)$/);
+    if (!m) continue;
+    const key = m[1];
+    const value = m[2].trim();
+    if (value === '') {
+      // Either a valueless key (null) or the head of a block sequence.
+      const items: string[] = [];
+      while (i + 1 < lines.length && /^[ \t]*-[ \t]+/.test(lines[i + 1])) {
+        items.push(unquote(lines[++i].replace(/^[ \t]*-[ \t]+/, '').trim()));
+      }
+      out[key] = items.length > 0 ? items : null;
+    } else if (value.startsWith('[')) {
+      const inner = value.slice(1, value.lastIndexOf(']')).trim();
+      // Prefer quoted extraction so a brace-comma glob like **/*.{md,ts} survives.
+      const quoted = [...inner.matchAll(/(["'])(.*?)\1/g)].map((q) => q[2]);
+      out[key] = inner === '' ? [] : quoted.length > 0 ? quoted : inner.split(',').map((s) => s.trim());
+    } else if (value === 'true' || value === 'false') {
+      out[key] = value === 'true';
+    } else if (value === 'null' || value === '~') {
+      out[key] = null;
+    } else {
+      out[key] = unquote(value);
+    }
+  }
+  return out;
+}
+
 function makeCtx(
   files: Record<string, string>,
   opts?: { config?: unknown; symlinks?: Record<string, string>; brokenLinks?: string[] },
@@ -36,6 +76,16 @@ function makeCtx(
   const symlinks = opts?.symlinks ?? {};
   const brokenLinks = opts?.brokenLinks ?? [];
   const allPaths = [...Object.keys(files), ...Object.keys(symlinks), ...brokenLinks];
+  function read(path: string): string {
+    if (path in files) return files[path];
+    if (path in symlinks) {
+      const target = symlinks[path];
+      if (target in files) return files[target];
+      throw new Error(`ENOENT: dangling symlink ${path} -> ${target}`);
+    }
+    if (brokenLinks.includes(path)) throw new Error(`ENOENT: broken symlink ${path}`);
+    throw new Error(`ENOENT: ${path}`);
+  }
   const ctx = {
     projectRoot: '/repo',
     scopedFiles: allPaths,
@@ -45,14 +95,17 @@ function makeCtx(
       return allPaths.filter((f) => re.test(f));
     },
     async readFile(path: string) {
-      if (path in files) return files[path];
-      if (path in symlinks) {
-        const target = symlinks[path];
-        if (target in files) return files[target];
-        throw new Error(`ENOENT: dangling symlink ${path} -> ${target}`);
-      }
-      if (brokenLinks.includes(path)) throw new Error(`ENOENT: broken symlink ${path}`);
-      throw new Error(`ENOENT: ${path}`);
+      return read(path);
+    },
+    // Models archgate 0.55's frontmatter-aware readYAML: the leading --- block
+    // parsed with types preserved, null when there is none.
+    async readYAML(path: string) {
+      const raw = read(path);
+      const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      return {
+        frontmatter: m ? parseFrontmatter(m[1]) : null,
+        content: m ? raw.slice(m[0].length).trim() : raw.trim(),
+      };
     },
     async readJSON(path: string) {
       if (path === '.archgate/config.json') return opts?.config ?? { domains: {} };
@@ -78,6 +131,7 @@ title: "ADR Contract"
 domain: general
 rules: true
 paths: [".archgate/adrs/**/*.md"]
+files: [".archgate/adrs/**/*.md"]
 ---`;
 
 const BODY = `
@@ -109,6 +163,8 @@ Links.
 `;
 
 const VALID_ADR = `${FM}\n${BODY}`;
+const PATHS_LINE = 'paths: [".archgate/adrs/**/*.md"]';
+const FILES_LINE = 'files: [".archgate/adrs/**/*.md"]';
 
 function passingFiles(): Record<string, string> {
   return {
@@ -148,6 +204,22 @@ describe('adr-frontmatter', () => {
     const { ctx, violations } = makeCtx(files);
     await rules['adr-frontmatter'].check(ctx);
     expect(violations.some((v) => /sibling.*does not exist/.test(v.message))).toBe(true);
+  });
+
+  it('accepts an unlisted tail key ahead of the ordered prefix (§2.2 promises no order there)', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = VALID_ADR.replace('---\ntype: adr', '---\ndescription: "leads the block"\ntype: adr');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-frontmatter'].check(ctx);
+    expect(violations).toEqual([]);
+  });
+
+  it('still fails a reordered key from within the ordered prefix', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = VALID_ADR.replace('type: adr\nid: GEN-001', 'id: GEN-001\ntype: adr');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-frontmatter'].check(ctx);
+    expect(violations.some((v) => /field order must be/.test(v.message))).toBe(true);
   });
 });
 
@@ -448,6 +520,125 @@ describe('adr-paths-inline', () => {
     const { ctx, violations } = makeCtx(files);
     await rules['adr-paths-inline'].check(ctx);
     expect(violations.some((v) => /must be an inline flow list/.test(v.message))).toBe(true);
+  });
+});
+
+describe('adr-files-scope', () => {
+  // `swap` rewrites the fixture's files: line; `scopeless` drops both keys.
+  const swap = (replacement: string) => VALID_ADR.replace(FILES_LINE, replacement);
+
+  it('passes an inline flow files list alongside paths', async () => {
+    const { ctx, violations } = makeCtx(passingFiles());
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations).toEqual([]);
+  });
+
+  it('passes a block-form files list — archgate honours block form (unlike paths, §2.7)', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = swap('files:\n  - ".archgate/adrs/**/*.md"');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations).toEqual([]);
+  });
+
+  it('passes an explicit always-on files: ["**/*"]', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = swap('files: ["**/*"]');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations).toEqual([]);
+  });
+
+  it('passes an ADR that declares neither paths nor files', async () => {
+    const files = passingFiles();
+    delete files[ADR_PATH];
+    files['.archgate/adrs/GEN-053-unscoped.md'] = VALID_ADR.replace(`${PATHS_LINE}\n`, '')
+      .replace(`${FILES_LINE}\n`, '')
+      .replace('id: GEN-001', 'id: GEN-053');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations).toEqual([]);
+  });
+
+  it('fails when paths is declared but files is absent', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = VALID_ADR.replace(`${FILES_LINE}\n`, '');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations.some((v) => /declares 'paths:' but no 'files:'/.test(v.message))).toBe(true);
+  });
+
+  it('fails an empty paths: [] with no files — scope still widens to the whole project', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = VALID_ADR.replace(PATHS_LINE, 'paths: []').replace(`${FILES_LINE}\n`, '');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations.some((v) => /declares 'paths:' but no 'files:'/.test(v.message))).toBe(true);
+  });
+
+  it('fails an empty files: [] — archgate reads it as the whole project', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = swap('files: []');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations.some((v) => /empty 'files: \[\]'/.test(v.message))).toBe(true);
+  });
+
+  it('fails a valueless files: — the form that voids the whole ADR', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = swap('files:');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations.some((v) => /must be a list of non-empty glob strings/.test(v.message))).toBe(true);
+  });
+
+  it('fails a scalar files value', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = swap('files: ".archgate/adrs/**/*.md"');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations.some((v) => /must be a list of non-empty glob strings/.test(v.message))).toBe(true);
+  });
+
+  it('fails a files list carrying a blank glob', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = swap('files: ["  ", ".archgate/adrs/**/*.md"]');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations.some((v) => /must be a list of non-empty glob strings/.test(v.message))).toBe(true);
+  });
+
+  it('reports a malformed files exactly once, never also as absent', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = swap('files:');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations).toHaveLength(1);
+  });
+
+  // The guard is key presence, not §4.3's non-empty test: every form of a
+  // declared paths: leaves scope widened when files: is missing, so each one
+  // reports. adr-paths-inline separately owns whether the form itself is legal.
+  it('fails a block-form paths with no files, which adr-paths-inline does not cover', async () => {
+    const files = passingFiles();
+    files[ADR_PATH] = VALID_ADR.replace(PATHS_LINE, 'paths:\n  - ".archgate/adrs/**/*.md"').replace(
+      `${FILES_LINE}\n`,
+      '',
+    );
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations.some((v) => /declares 'paths:' but no 'files:'/.test(v.message))).toBe(true);
+  });
+
+  it('stays silent when neither paths nor files is declared, whatever the tail holds', async () => {
+    const files = passingFiles();
+    delete files[ADR_PATH];
+    files['.archgate/adrs/GEN-054-tail.md'] = VALID_ADR.replace(`${PATHS_LINE}\n`, '')
+      .replace(FILES_LINE, 'description: "no scope keys at all"')
+      .replace('id: GEN-001', 'id: GEN-054');
+    const { ctx, violations } = makeCtx(files);
+    await rules['adr-files-scope'].check(ctx);
+    expect(violations).toEqual([]);
   });
 });
 

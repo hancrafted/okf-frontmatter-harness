@@ -30,13 +30,15 @@ Rejected alternative: a generator that copies each ADR body into `.claude/rules/
 
 ### 2. Frontmatter contract (📜 Rule: `adr-frontmatter`)
 
-1. Keys `type`, `id`, `title`, `domain`, `rules` MUST be present and non-empty; `paths` and `files` are optional.
-2. Field order MUST be exactly `type → id → title → domain → rules → paths`; `type` leads because it is the universal field `GEN-003` owns. Additional keys (e.g. `description`) MAY follow `paths`.
+1. Keys `type`, `id`, `title`, `domain`, `rules` MUST be present and non-empty; `paths` is optional, and `files` is optional only on an ADR that declares no `paths` (§2.8).
+2. Field order MUST be exactly `type → id → title → domain → rules → paths`; `type` leads because it is the universal field `GEN-003` owns. Every key outside that list — `files`, `description` — is unordered, in the check as in this prose: no failure turns on where they sit, so nothing pins them.
 3. `type` MUST be `adr`.
 4. `id` MUST match the filename prefix — `GEN-001-adr.md` carries `id: GEN-001`.
 5. `domain` MUST be a registered archgate domain (built-in or `.archgate/config.json` custom).
 6. `rules: true` MUST have a sibling `<basename>.rules.ts`, and an existing sibling MUST have `rules: true` — both directions.
 7. `paths`, when present, MUST be inline YAML flow form — e.g. `paths: [".archgate/adrs/**/*.{md,ts}"]`. A block-style, bare, or null value parses as empty, and §4.3 then bans the symlink, silently degrading runtime scope to nothing. (📜 Rule: `adr-paths-inline`)
+8. `files` MUST be a list of non-empty globs wherever it appears, and an ADR declaring `paths` MUST declare it too (§4.5). Absent or `[]` silently widens scope to every file in the project. Flow and block form both parse here, because this check reads real YAML where §2.7's test is line-based. (📜 Rule: `adr-files-scope`)
+9. archgate types every key it reads, so a valueless one voids the ADR: nothing parses, no rule runs, and `archgate check` still reports a pass. §2.1 and §2.8 catch that for the required keys and for `files`; `respectGitignore`, the only other key archgate reads, is optional and unchecked. Passthrough keys (`paths`, `description`) parse regardless — though §2.7 bans a valueless `paths` anyway.
 
 ### 3. Required sections (📜 Rule: `adr-required-sections`)
 
@@ -48,7 +50,7 @@ Every ADR MUST carry all six canonical H2 headings — exact text, presence-only
 2. The runtime entry MUST be a symlink (a pointer), never a copied body that would silently go stale. The check asserts this as **byte-for-byte sync** with the ADR: a symlink satisfies it inherently, a drifted copy fails, and a fresh identical copy is an accepted gap (Consequences).
 3. An ADR with empty or absent `paths:` MUST NOT have such a symlink — it governs nothing at runtime.
 4. Every ADR-named entry under `.claude/rules/` (basename `<prefix>-<nnn>-<slug>.md`) MUST have a backing ADR with a non-empty `paths:`; orphans are a violation. Hand-written, non-ADR-named rule files are left untouched.
-5. Two keys, two consumers: `files:` is archgate's scope — it sets `ctx.scopedFiles` and gates whether these rules run at all, silently defaulting to the whole project when absent. `paths:` is Claude Code's read-trigger, publishing the ADR through the §4.1 symlink. Declare both, at the same glob. Always-on scope is `["**/*"]` (a glob matching every Read); the no-`paths` launch-load mode is deliberately unused, so every symlinked ADR declares its scope.
+5. Two keys, two consumers: `files:` is archgate's scope — it sets `ctx.scopedFiles` and gates whether these rules run at all (§2.8). `paths:` is Claude Code's read-trigger, publishing the ADR through the §4.1 symlink. Declare both, at the same glob. Always-on scope is `["**/*"]` (a glob matching every Read); the no-`paths` launch-load mode is deliberately unused, so every symlinked ADR declares its scope.
 6. The channel is soft: a missing symlink degrades runtime hinting but does not gate the build beyond this rule — archgate at commit and push stays authoritative.
 
 ### 5. Authoring discipline
@@ -80,21 +82,22 @@ An ADR loads into agent context as a `.claude/rules` runtime rule (§4), so ever
 ### Do's
 
 1. **DO** open every ADR with frontmatter in the order `type → id → title → domain → rules → paths`, `type: adr`, `id` matching the filename. (Decision 2, 📜 Rule: `adr-frontmatter`)
-2. **DO** emit all six canonical H2 sections; presence-only, empty bodies pass the linter but not review. (Decision 3, 📜 Rule: `adr-required-sections`)
-3. **DO** give every ADR that declares a non-empty `paths:` a `.claude/rules/<basename-lowercased>.md` symlink pointing back to it. (Decision 4, 📜 Rule: `adr-claude-rules-symlink`)
-4. **DO** express always-on scope as `paths: ["**/*"]` rather than omitting `paths`.
-5. **DO** keep the runtime entry a symlink (a pointer), never a copied body.
-6. **DO** number Decision anchors `### N.` from 1 and keep each anchor's first-level items a sequential ordered list. (Decision 5, 📜 Rule: `adr-numbered-decision`)
-7. **DO** head the blocks with `### Do's` then `### Don'ts` and write each as an ordered list restarting at 1, every item keeping its `**DO**` / `**DON'T**` prefix. (Decision 5, 📜 Rule: `adr-numbered-dos-donts`)
-8. **DO** anchor every companion rule to prose on both sides — a Decision-side marker on the deciding anchor and a back-referencing Do's/Don'ts marker naming that anchor. (Decision 5, 📜 Rule: `adr-rule-mentions`)
-9. **DO** give every `.rules.ts` a sibling `.rules.test.ts` that exercises each rule's pass and fail path. (Decision 6, 📜 Rule: `adr-rules-test-sibling`)
-10. **DO** embed the provenance tag `(<ID> [<rule-key>])` in every rule's report messages. (Decision 6, 📜 Rule: `adr-message-provenance`)
-11. **DO** run every companion rule at the `error` tier — §7 permits no other. (Decision 7, 📜 Rule: `adr-error-tier`)
-12. **DO** make every ADR sentence steer the authoring of a governed file; cut or relocate any line that doesn't. (Decision 5)
-13. **DO** state each rule's architectural why and cite the companion `.rules.ts` and its tests as the source-of-truth, keeping implementation detail sparse. (Decision 5)
-14. **DO** keep one idea per list item, leading with the point. (Decision 5)
-15. **DO** keep Consequences and Compliance lean — the live tradeoff and the enforcement surface, with the mechanism left to a reference doc or the rules file. (Decision 5)
-16. **DO** pitch each ADR at the authors of the files its `paths:` governs, dropping mechanics that never reach that reader. (Decision 5)
+2. **DO** declare `files:` wherever the ADR declares `paths:`, and keep any `files:` a list of non-empty globs. (Decision 2, 📜 Rule: `adr-files-scope`)
+3. **DO** emit all six canonical H2 sections; presence-only, empty bodies pass the linter but not review. (Decision 3, 📜 Rule: `adr-required-sections`)
+4. **DO** give every ADR that declares a non-empty `paths:` a `.claude/rules/<basename-lowercased>.md` symlink pointing back to it. (Decision 4, 📜 Rule: `adr-claude-rules-symlink`)
+5. **DO** express always-on scope as `paths: ["**/*"]` rather than omitting `paths`.
+6. **DO** keep the runtime entry a symlink (a pointer), never a copied body.
+7. **DO** number Decision anchors `### N.` from 1 and keep each anchor's first-level items a sequential ordered list. (Decision 5, 📜 Rule: `adr-numbered-decision`)
+8. **DO** head the blocks with `### Do's` then `### Don'ts` and write each as an ordered list restarting at 1, every item keeping its `**DO**` / `**DON'T**` prefix. (Decision 5, 📜 Rule: `adr-numbered-dos-donts`)
+9. **DO** anchor every companion rule to prose on both sides — a Decision-side marker on the deciding anchor and a back-referencing Do's/Don'ts marker naming that anchor. (Decision 5, 📜 Rule: `adr-rule-mentions`)
+10. **DO** give every `.rules.ts` a sibling `.rules.test.ts` that exercises each rule's pass and fail path. (Decision 6, 📜 Rule: `adr-rules-test-sibling`)
+11. **DO** embed the provenance tag `(<ID> [<rule-key>])` in every rule's report messages. (Decision 6, 📜 Rule: `adr-message-provenance`)
+12. **DO** run every companion rule at the `error` tier — §7 permits no other. (Decision 7, 📜 Rule: `adr-error-tier`)
+13. **DO** make every ADR sentence steer the authoring of a governed file; cut or relocate any line that doesn't. (Decision 5)
+14. **DO** state each rule's architectural why and cite the companion `.rules.ts` and its tests as the source-of-truth, keeping implementation detail sparse. (Decision 5)
+15. **DO** keep one idea per list item, leading with the point. (Decision 5)
+16. **DO** keep Consequences and Compliance lean — the live tradeoff and the enforcement surface, with the mechanism left to a reference doc or the rules file. (Decision 5)
+17. **DO** pitch each ADR at the authors of the files its `paths:` governs, dropping mechanics that never reach that reader. (Decision 5)
 
 ### Don'ts
 
@@ -107,6 +110,7 @@ An ADR loads into agent context as a `.claude/rules` runtime rule (§4), so ever
 7. **DON'T** park stray files, subdirectories, or ADR-less rules files under `.archgate/adrs/` — what the contract cannot see it cannot govern, and an orphan `.rules.ts` never runs. (Decision 1, 📜 Rule: `adr-governed-files`)
 8. **DON'T** narrate an ADR's history — no "previously", no "now that", no phase-by-phase; give the architectural why and state rejected alternatives as live tradeoffs. (Decision 5)
 9. **DON'T** transcribe a constant an author would otherwise read from a `.rules.ts` or `.d.ts` — cite the source-of-truth so the prose cannot drift from it. (Decision 5)
+10. **DON'T** leave any frontmatter key valueless — archgate types every key it reads, so one bare key voids the whole ADR while the build still passes green. (Decision 2)
 
 ## Consequences
 
@@ -126,6 +130,7 @@ An ADR loads into agent context as a `.claude/rules` runtime rule (§4), so ever
 4. **Authoring ceremony:** the contract's full rule set — numbered anchors, subsection headings, twin markers, a sibling rules-test, provenance tags — is more to satisfy than plain prose. Mitigated: the `adr-author` skill encodes the shape, this ADR auto-loads on any ADR Read, and each rule's message names the fix.
 5. **Target correctness — now largely verified:** the rule previously proved only that an entry existed at the expected name, so a mispointed or dangling link passed silently. Content equality closes most of that gap: a link resolving to a _different_ ADR mismatches and fails, and a dangling link is unreadable and fails. What remains unverified is a link resolving to some other byte-identical file. The rule API still cannot `readlink`.
 6. **A fresh, byte-identical copy is undetectable (accepted under 0.55):** because `readFile()` resolves symlinks, a pointer and a copy are indistinguishable until the copy drifts. Catching freshness requires `respectGitignore: false` plus the undocumented glob/readFile asymmetry — the same fragility class that just broke, and ADR-wide in effect — so it was declined in favour of the documented signal. This ADR therefore promises _sync_, not _pointer-ness_. Ranked alternatives: `docs/research/symlink-detection-055.md` §5.
+7. **A self-voiding ADR is the one shape this contract cannot catch:** a valueless typed key (§2.9) drops the ADR from archgate's run, and these rules report it on any _other_ ADR — but on GEN-001 itself the rules that would report it are the rules that stopped running, so bare `archgate check` reports a pass over zero rules. `archgate check --strict` fails on the `unparsedAdrs` advisory and is the general answer; adopting it in both verify gates waits on archgate's briefing-length advisory, which this ADR also exceeds and `--strict` also fails. Carried as a review duty below.
 
 **Risks:**
 
@@ -136,7 +141,7 @@ An ADR loads into agent context as a `.claude/rules` runtime rule (§4), so ever
 
 Automated: `GEN-001-adr.rules.ts` runs every companion rule at `error` (§7), scoped to ADR basenames under `.archgate/adrs/`; each rule is marked at its deciding anchor, with the rules file as the source-of-truth for the full set.
 
-**Manual review duties** (never linted): widening the supported `archgate` range in `package.json` requires re-verifying the rules against the new version first — the range asserts what has been tested, not what is expected to work; `paths:` globs actually describe the ADR's real governance surface; each `.claude/rules` symlink resolves to its own ADR (§4.2 — link targets are not machine-checkable); the sibling `.rules.test.ts` exercises each rule's pass and fail path (§6.1); section bodies are substantive, not empty placeholders that pass the presence-only check; the prose obeys §5's standard (Root through Audience), which no rule enforces.
+**Manual review duties** (never linted): widening the supported `archgate` range in `package.json` requires re-verifying the rules against the new version first — the range asserts what has been tested, not what is expected to work; `paths:` globs actually describe the ADR's real governance surface; each `.claude/rules` symlink resolves to its own ADR (§4.2 — link targets are not machine-checkable); the sibling `.rules.test.ts` exercises each rule's pass and fail path (§6.1); section bodies are substantive, not empty placeholders that pass the presence-only check; the prose obeys §5's standard (Root through Audience), which no rule enforces; no frontmatter key is left valueless — on GEN-001 itself that voids the ADR and drops all its rules while the build stays green (Consequences 7).
 
 **Toolchain note:** `.archgate/**` is deliberately outside the repo's eslint and `tsc --noEmit` gates until a dedicated script ADR governs rules-file authoring ([#9](https://github.com/hancrafted/typescript-ai-harness/issues/9)); archgate forbids imports from shared folders, so every rules file is self-contained. Prettier and vitest cover `.archgate/**/*.ts`; `archgate check` is the sole gate on the ADR markdown. `archgate` itself is version-gated: `scripts/check-archgate-version.mjs` asserts the running binary against the supported range before any check runs, and `verify` additionally guards the generated `.archgate/rules.d.ts` with `git diff --exit-code`, because 0.55 regenerates that committed file in place as a side effect of a routine check.
 
