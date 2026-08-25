@@ -62,7 +62,8 @@ reading the diff, and adjusting the ADRs and rules it touches. Always manual, al
 reviewable change.
 _Avoid_: upgrading, bumping, syncing
 
-**Domain**: An archgate grouping that scopes an ADR to a set of paths. Must be a built-in
+**Domain**: An archgate grouping label carried by an ADR, used to group ADRs and the findings
+they raise. It does not decide which files the ADR governs — `files:` does. Must be a built-in
 domain or one registered in `.archgate/config.json`.
 _Avoid_: area, category, scope
 
