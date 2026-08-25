@@ -10,5 +10,5 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["src", "*.ts", "*.mts"]
+  "include": ["src", "*.ts", "*.mts", ".archgate/**/*.ts"]
 }

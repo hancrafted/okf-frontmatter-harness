@@ -1,0 +1,122 @@
+# valid-test-config.yml — the fixture v1 is implemented against.
+#
+# A SYNTHETIC config, not this repo's. Every path points inside this fixtures
+# directory, which the tests treat as a synthetic repo root, so nothing here
+# can be confused with the shipped `okf-config.yml`. Its job is coverage: it
+# reaches every key in the vocabulary, including the ones no real file in this
+# repo would exercise.
+#
+# Rules are an ORDERED list. For any file the harness walks top-down and the
+# FIRST matching rule is the complete set of constraints that applies. Nothing
+# merges and nothing is inherited, so the most specific rules come first and
+# the broadest last — reversed, a narrow rule silently wins for zero files.
+#
+# Governance is opt-in: a file no rule matches is invisible to the harness.
+# Constraints derive from the OKF text vendored at docs/okf/SPEC-v0.2.md.
+#
+# Shape reference: ../okf-config.d.ts
+
+# ── Type vocabulary ────────────────────────────────────────────────────────
+# Master data. Optional as a whole; deleting this block is safe, but editing it
+# and dropping a name a rule references below is a config error, because a
+# rule-level `types` must subset a declared ceiling.
+types:
+  - { name: research, intent: Findings gathered to settle a question, with sources. }
+  - { name: reference, intent: Lookup data an agent consults rather than reads through. }
+  - { name: playbook, intent: How to carry out a task in this repo. }
+  - { name: log, intent: The update history of a scope, newest first. }
+  - { name: skill } # `intent` is optional — this record exercises its absence
+
+rules:
+  # ── Reserved filenames ───────────────────────────────────────────────────
+  # Keyed on the basename, so they match at any depth and sit above every
+  # directory rule. `fileName` is sugar for `path: ["**/<name>"]`.
+  - fileName: index.md
+    intent: 'OKF §8 (Index files): an index enumerates a directory, and carries no frontmatter'
+    frontmatter: forbidden
+
+  - fileName: log.md
+    intent: 'OKF §9 (Log files): a log is an update history, never a concept'
+    types: [log]
+
+  # ── Provenance exemplar ──────────────────────────────────────────────────
+  # One exact path, deliberately ABOVE the broad research rule below: this pair
+  # is what proves first-match ordering on real files rather than asserting it.
+  # Reaches every named format and both nesting depths.
+  - path: [fixtures/docs/research/provenance.md]
+    intent: The document the Floor was derived from records its own provenance
+    types: [research]
+    fields:
+      description: { presence: required }
+      generated.by: { presence: required, format: actor }
+      generated.at: { presence: required, format: datetime }
+      # A constraint on the LIST itself…
+      sources: { minItems: 1 }
+      # …and constraints on EVERY ENTRY of it. Different addresses, so the two
+      # never share a shape.
+      sources[].id: { presence: required }
+      sources[].resource: { presence: required, format: uri }
+      sources[].author: { format: actor }
+      sources[].last_modified: { format: datetime }
+      sources[].usage_count: { presence: optional }
+      verified[].by: { format: actor }
+      verified[].at: { format: datetime }
+      usage_window.from: { format: datetime }
+      usage_window.to: { format: datetime }
+      stale_after: { format: datetime }
+
+  # ── Research, broadly ────────────────────────────────────────────────────
+  - path: [fixtures/docs/research/**/*.md]
+    # Vendored text falls THROUGH this rule and is matched by nothing after it,
+    # so it ends up ungoverned — which is the only use `excludeFiles` has under
+    # first-match.
+    excludeFiles: [fixtures/docs/research/vendor/**]
+    intent: Research is indexed, and an index entry copies the description
+    types: [research]
+    anyOf: [sources, generated]
+    unknownKeys: allowed # the default, written out once for coverage
+    fields:
+      description: { presence: required, maxLength: 200 }
+      tags: { minItems: 1, maxItems: 5, itemMaxLength: 20 }
+
+  # ── Skills ───────────────────────────────────────────────────────────────
+  # The cross-field case. The harness has never heard of "skill": this is a
+  # path glob plus a generic constraint.
+  - path: [fixtures/docs/skills/**/SKILL.md]
+    intent: A skill is addressed by exactly one of its two names
+    types: [skill]
+    exactlyOneOf: [name, title]
+    fields:
+      description: { presence: required }
+
+  # ── Reference ────────────────────────────────────────────────────────────
+  # The only rule that closes its key set, and the only one carrying `pattern`.
+  - path: [fixtures/docs/reference/**/*.md]
+    intent: Reference pages are looked up by slug and say how far they can be trusted
+    types: [reference]
+    unknownKeys: forbidden
+    fields:
+      description: { presence: required }
+      status: { allowed: [draft, stable, deprecated] }
+      slug:
+        pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+        # MANDATORY beside `pattern` — without it the regex leaks into the
+        # violation, which is the whole reason the key exists.
+        intent: Slugs are lowercase words joined by single hyphens
+      draft:
+        presence: forbidden
+        intent: Reference material ships finished or not at all
+
+  # ── Playbooks ────────────────────────────────────────────────────────────
+  - path: [fixtures/docs/playbooks/**/*.md]
+    intent: A playbook names itself and says when to reach for it
+    types: [playbook]
+    allOf: [title, description]
+    fields:
+      title: { minLength: 3, maxLength: 80 }
+
+  # ── Floor only ───────────────────────────────────────────────────────────
+  # A selector and a reason, no payload. Its entire effect is arming the Floor:
+  # these files must declare what kind of document they are.
+  - path: [fixtures/docs/plain/**/*.md]
+    intent: Everything under plain/ still has to say what it is

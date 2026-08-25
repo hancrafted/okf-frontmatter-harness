@@ -7,3 +7,7 @@ dist
 # Vendored third-party text: this file IS the pin the harness implements, so it
 # must stay byte-identical to upstream. Formatting it would silently move the pin.
 docs/okf/SPEC-v0.2.md
+
+# Test fixtures: their byte layout IS the fixture. The invalid-*.yml configs to
+# come are deliberately malformed, and `prettier --check` cannot parse them.
+.archgate/fixtures
