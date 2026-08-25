@@ -30,6 +30,38 @@ surfaced that half his fix needed to be an exclusion instead, and produced the s
 resolution ("governed but type-free is inexpressible"). Do not just capture his restatement; run it
 against the mechanism first.
 
+## An option with no content will get picked
+
+**Every lettered option must be concrete enough to implement as written.** On #10 I offered "C —
+stretch an existing value to cover them" without naming which value, called it the worst of the
+three, and he answered "C". The letter was pickable; the option was empty. Working the mechanism
+afterwards showed C had _no_ legal form — a declared `types:` list is a ceiling, so a governed file
+must carry a listed value, and "stretch" collapsed into "give a file a value whose stated purpose is
+false". I had to go back and re-ask.
+
+Two lessons: an option I am arguing against still needs to be specified properly, because he picks
+against my recommendation often enough that a placeholder becomes a decision. And **the mechanism
+check belongs before the question, not after the answer** — had I worked the ceiling rule first, C
+would never have been on the list.
+
+## He reframes rather than disagreeing — and the reframe is usually better
+
+Twice on #10 he chose the option I argued against, and neither time did he dispute a fact:
+
+- I priced a rule matching zero files as **"the dead-rule cost"**. He took it anyway: _"when ADRs,
+  design ADRs are created they should be conformant and governed"_ — a rule that lands **before** its
+  first file means nothing is ever retrofitted. Same fact, better frame, and my framing had no answer
+  to it.
+- I asked which half of the config an adopter inherits and what breaks when they edit it. He retired
+  the question: the config's v1 job is to be **a complete enough test surface to build the harness**,
+  and its shipped shape stays adjustable. That flipped the deciding criterion from adopter ergonomics
+  to coverage, and dissolved a hazard I had spent a table pricing.
+
+**How to apply:** when he takes the option you argued against, do not re-argue it — look for the
+reframe, state it back, and re-derive everything downstream of it. Both of these changed later
+answers. This is the same shape as _"dogfood in v1"_ in [[feedback-dogfood-on-real-files]]: a short
+sentence that rescopes the question rather than answering it.
+
 **How to apply:** when the reply is prose rather than a selection, stop and ask what his sentence
 implies that the options did not offer, then reflect it back explicitly as "my reading of your
 answer, stated so you can correct it". He corrects that readback when it is off, which is how the
