@@ -70,3 +70,26 @@ his answer conflicted with a standing preference already recorded on the map, su
 conflict outright (rather than silently absorbing it) produced a clean ruling and a rewritten
 preference. See [[feedback-name-the-boundary]], [[feedback-challenge-the-interface]] and
 [[feedback-design-decisions-need-precedent]].
+
+## The mechanism check before the question — measured cost, second instance
+
+This memory already says _"the mechanism check belongs before the question, not after the answer"_.
+On #17 I broke it in a new way: I offered a **location** rather than a value, and the location was
+structurally forbidden.
+
+I asked where test fixtures should live, recommended `.archgate/adrs/fixtures/`, and he picked it.
+Writing the files produced **15 violations of `GEN-001 [adr-governed-files]`** — _"sits in a
+subdirectory — .archgate/adrs/ is flat"_. The rule that forbids it lives in the one ADR this repo
+has, was already green in every run, and takes one `grep` to find.
+
+**How to apply: a question that proposes a file path, directory or filename is a mechanism question,
+not a taste question.** Before offering it, check what already governs that path — the ADR rules,
+`.prettierignore`, `.gitignore`, the tsconfig `include`, the eslint `ignores`, the vitest `include`.
+Han answers path questions quickly and without suspicion, because he reasonably assumes the option
+was checked.
+
+Two smaller consequences from the same session, both worth pre-empting rather than discovering:
+enabling a verification surface **surfaces its own gaps** (adding `.archgate/**/*.ts` to tsconfig
+immediately needed `@types/node`, which nothing had required before), and a directory of fixtures
+**needs a `.prettierignore` entry** the moment a deliberately-malformed fixture is planned, because
+`prettier --check` cannot parse one.

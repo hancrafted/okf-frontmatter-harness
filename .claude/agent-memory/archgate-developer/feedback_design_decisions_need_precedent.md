@@ -42,3 +42,29 @@ the files exactly. Adopting the interface's words beat inventing one, and it tur
 a conformance. This is the same instinct as [[feedback-challenge-the-interface]] item 4 (check the
 reference implementation, not just the spec text) pointed the other way: also check the spec's own
 _examples_, not just the clause that binds. Cheapest possible source, and I searched past it.
+
+## Measured again on #17 — and the interface was the answer both times
+
+A second, sharper instance of both halves of this memory, in one ticket. **Two headline findings I had
+already put to Han were refuted by an adversarial pass**, and the count itself was fabricated:
+
+| I told him                                    | the refutation                                                                                                                                                                                                                        |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "11 of 11 config formats use a container key" | Not derivable from any table I published. **5 of the 8 tools cited hold tool-defined keys, not user-named ones**, so they were not evidence for the claim at all                                                                      |
+| "Hugo migrated away from the flat form"       | It did not. The parser still routes any non-reserved key to `Fields` with identical semantics. And I had **abridged the maintainer's quote at the fence**, cutting "Mostly about documentation" and "We will never break the old way" |
+| "no system uses bare `[]` for every-element"  | jq, yq, gcloud, GROQ and MongoDB all do — and in jq, **`[*]` is a syntax error while `[]` is correct**                                                                                                                                |
+| a measured lodash hazard argued for `[*]`     | all three spellings fail identically; lodash has no array wildcard at all. The measurement was real and **discriminated nothing**                                                                                                     |
+
+**The pattern in the failures is specific and worth targeting:** a fabricated aggregate count over a
+population the researcher defined _from the answer_; a quote whose framing sentences were cut; and a
+real measurement used to argue something it does not bear on. Ask of any finding: _what is the
+denominator, who chose it, and does the measurement distinguish the options or merely describe one?_
+
+**And the interface half repeated exactly.** I surveyed sixteen path languages to replace
+`sources[].resource`, told him twice that three places needed correcting — and the **vendored spec in
+this repo writes the bracket form six times across four sections**. #7 had adopted OKF's notation, not
+invented one. The lesson from #10's `Playbook`/`Reference` did not fire because the question looked
+like a general path-syntax question rather than an OKF question. **The trigger is not "is this about
+the spec" — it is "does the spec happen to write this down anywhere", which is a `grep` of
+`docs/okf/SPEC-v0.2.md` costing seconds.** Run it before any sweep about notation, vocabulary, or
+field names.

@@ -14,3 +14,4 @@
 - [No ceremony without a consumer](feedback_no_ceremony_without_consumer.md) — ask what reads it; match precedent to mechanism class, not topic.
 - [Dogfood on real files](feedback_dogfood_on_real_files.md) — he creates a file so a shipped rule fires; count the matches and don't call it ceremony.
 - [Explicit over inherited](feedback_explicit_over_inherited.md) — Han trades duplication for explicitness; explain a merge model in worked examples before he locks it.
+- [Config as a steering surface](feedback_config_as_steering_surface.md) — config prose is queried by agents before they write; one property, uniformly, because strings go stale.
