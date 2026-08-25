@@ -47,3 +47,20 @@ Blocked: every import outside `node:path`, `node:url`, `node:util`, `node:crypto
 `node:fs`; relative imports of sibling modules, so two ADRs cannot share a helper and must each
 carry their own copy; and `.constructor`, which reaches the `Function` constructor. Reach for
 `Array.isArray()` or `Object.prototype.toString.call()` instead of `.constructor`.
+
+**Types reach a rule file by triple-slash reference, never by import.** A `/// <reference path=... />`
+is a comment, so the scanner cannot object to it; `import type` is still an `import` statement and is
+refused. Anything a rule file needs typed must therefore be `declare`d into the global scope — see
+`.archgate/rules.d.ts` (archgate-generated, guarded by `git diff --exit-code` in `npm run verify`)
+and `.archgate/okf-config.d.ts` (hand-written, not guarded).
+
+**`.archgate/**` is typechecked but deliberately not linted.** `tsconfig.json` includes
+`.archgate/**/*.ts`, so `tsc --noEmit` in both verify gates compiles every rule file and its
+companion test. `eslint.config.mjs` still ignores the directory: this repo's `complexity: 7` /
+`max-lines-per-function: 30` limits produce 16 errors on `GEN-001-adr.rules.ts` alone, and that file
+is upstream-owned. Do not "fix" the eslint ignore.
+
+**`.archgate/adrs/` is flat.** `GEN-001 [adr-governed-files]` reports every nested file, so fixtures,
+scratch files and subdirectories cannot live there — one directory of fixtures produced 15 violations.
+Harness material that is not an ADR bundle goes one level up, in `.archgate/` itself (`fixtures/`,
+`okf-config.d.ts`, `fixtures.test.ts`).
